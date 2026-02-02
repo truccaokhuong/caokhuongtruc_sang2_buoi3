@@ -1172,6 +1172,45 @@ router.get('/', function (req, res, next) {
   let page = queries.page ? queries.page : 1;
   let limit = queries.limit ? queries.limit : 10;
   console.log(queries);
+
+  // Validation: page và limit phải là số nguyên dương
+  page = parseInt(page);
+  limit = parseInt(limit);
+
+  if (isNaN(page) || page <= 0) {
+    return res.status(400).send({
+      "message": "page phải là số nguyên dương"
+    });
+  }
+
+  if (isNaN(limit) || limit <= 0) {
+    return res.status(400).send({
+      "message": "limit phải là số nguyên dương"
+    });
+  }
+
+  // Validation: minPrice và maxPrice
+  minPrice = parseFloat(minPrice);
+  maxPrice = parseFloat(maxPrice);
+
+  if (isNaN(minPrice) || minPrice < 0) {
+    return res.status(400).send({
+      "message": "minPrice phải là số không âm"
+    });
+  }
+
+  if (isNaN(maxPrice) || maxPrice < 0) {
+    return res.status(400).send({
+      "message": "maxPrice phải là số không âm"
+    });
+  }
+
+  if (maxPrice < minPrice) {
+    return res.status(400).send({
+      "message": "maxPrice không được nhỏ hơn minPrice"
+    });
+  }
+
   let result = data.filter(
     function (e) {
       return (!e.isDeleted) && e.title.includes(titleQ) &&
@@ -1183,27 +1222,77 @@ router.get('/', function (req, res, next) {
 });
 //get by ID
 router.get('/:id', function (req, res, next) {
-  let result = data.find(
-    function (e) {
-      return e.id == req.params.id && (!e.isDeleted);
-    }
-  )
+  // Kiểm tra xem có phải slug hay id
+  let param = req.params.id;
+  let result = null;
+
+  // Nếu là số, tìm theo id
+  if (/^\d+$/.test(param)) {
+    result = data.find(function (e) {
+      return e.id == param && (!e.isDeleted);
+    });
+  } else {
+    // Nếu không phải số, tìm theo slug
+    result = data.find(function (e) {
+      return e.slug === param && (!e.isDeleted);
+    });
+  }
+
   if (result) {
     res.send(result);
   } else {
     res.status(404).send({
-      "message": "id not found"
+      "message": "id or slug not found"
     });
   }
 });
 
 
 router.post('/', function (req, res, next) {
+  // Validation: các trường không được để trống
+  if (!req.body.title || req.body.title.trim() === '') {
+    return res.status(400).send({
+      "message": "title không được để trống"
+    });
+  }
+
+  if (!req.body.price) {
+    return res.status(400).send({
+      "message": "price không được để trống"
+    });
+  }
+
+  if (!req.body.description || req.body.description.trim() === '') {
+    return res.status(400).send({
+      "message": "description không được để trống"
+    });
+  }
+
+  if (!req.body.category) {
+    return res.status(400).send({
+      "message": "category không được để trống"
+    });
+  }
+
+  if (!req.body.images || !Array.isArray(req.body.images) || req.body.images.length === 0) {
+    return res.status(400).send({
+      "message": "images không được để trống và phải là một mảng"
+    });
+  }
+
+  // Validation: price phải là số
+  let price = parseFloat(req.body.price);
+  if (isNaN(price) || price <= 0) {
+    return res.status(400).send({
+      "message": "price phải là số dương"
+    });
+  }
+
   let newObj = {
     id: (getMaxID(data) + 1) + '',
     title: req.body.title,
     slug: ConvertTitleToSlug(req.body.title),
-    price: req.body.price,
+    price: price,
     description: req.body.description,
     category: req.body.category,
     images: req.body.images,
@@ -1213,7 +1302,6 @@ router.post('/', function (req, res, next) {
   data.push(newObj);
   console.log(data);
   res.send(newObj);
-  //console.log(g);
 })
 router.put('/:id', function (req, res, next) {
   let id = req.params.id;
